@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo '{"version":1}'
+echo '['
+
+while true; do
+  echo "[{\"full_text\":\"$(viewstatus)\"}],"
+  sleep 10
+done

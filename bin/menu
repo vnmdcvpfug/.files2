@@ -1,0 +1,48 @@
+#!/bin/bash
+version="0.1.0"
+
+while true; do
+  tput civis
+  clear
+  echo "menu v$version"
+  echo -e "select the mode..."
+  read -rsn1 mode_num
+  
+  case $mode_num in
+    1) mode="open" ;;
+    2) mode="note" ;;
+    3) mode="ai" ;;
+    4) mode="define" ;;
+    5) mode="thesaurus" ;;
+    *) continue ;;
+  esac
+  
+  tput cnorm
+  clear
+  echo "menu v$version"
+  trap 
+  read -rep "$mode: " input
+
+  if [[ "$mode" != "open" ]]; then
+    i3-msg resize set 800 450
+    i3-msg move position center
+  fi
+
+  if [[ "$mode" == "open" ]]; then
+    clear
+    i3-msg exec "$input"
+  elif [[ "$mode" == "note" ]]; then
+    clear
+    ted "$HOME/notes/$input"
+  elif [[ "$mode" == "ai" ]]; then
+    clear
+    ai "$input"
+  elif [[ "$mode" == "define" ]]; then
+    clear
+    define "$input"
+  elif [[ "$mode" == "thesaurus" ]]; then
+    clear
+    thesaurus "$input"
+  fi
+  break
+done

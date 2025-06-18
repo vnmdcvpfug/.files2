@@ -1,0 +1,215 @@
+#!/bin/bash
+stty -ixon  # Prevent Ctrl+S and Ctrl+Q interference
+version="0.1.0"
+window_start=0
+window_height=$(( $(tput lines) - 6 ))  # Adjust for header/footer lines
+trap 'window_height=$(( $(tput lines) - 6 ))' SIGWINCH
+
+# Ask for filename if not provided
+if [[ -z "$1" ]]; then
+    clear
+    echo "ted v$version"
+    read -rp "enter filename: " input_file
+    while [[ -z "$input_file" ]]; do
+      clear
+      echo "ted v$version"
+      read -rp "filename can't be empty: " input_file
+    done
+else
+    input_file="$1"
+fi
+
+filename="$(realpath "$input_file")"
+
+# Load file
+if [[ -f "$filename" ]]; then
+    mapfile -t lines < "$filename"
+else
+    lines=("")
+fi
+
+cursor=0
+saved=false
+undo_stack=()  # Stack of "type|index|data"
+redo_stack=()
+
+draw() {
+    tput civis
+    tput cup 0 0
+    printf "\033[J"
+
+    echo "ted v$version"
+    echo "editing $filename"
+    echo -e "move up/down, edit ^e, insert ^n, delete ^d, undo ^u, redo ^r, save ^s, quit ^q\n"
+
+    number_width=${#lines[@]}
+    for ((i = window_start; i < window_start + window_height && i < ${#lines[@]}; i++)); do
+        line_number=$((i + 1))
+        if [[ $i -eq $cursor ]]; then
+            printf "> %${#number_width}d %s\n" "$line_number" "${lines[i]}"
+        else
+            printf "  %${#number_width}d %s\n" "$line_number" "${lines[i]}"
+        fi
+    done
+    echo
+}
+
+save_file() {
+    printf "%s\n" "${lines[@]}" > "$filename"
+    saved=true
+    echo -e "\nsaved to $filename"
+    sleep 1
+}
+
+push_undo() {
+    undo_stack+=("$1")
+    redo_stack=()  # Clear redo stack on new change
+}
+
+undo_last_action() {
+    if [[ ${#undo_stack[@]} -eq 0 ]]; then
+        echo -e "\nnothing to undo"
+        sleep 1
+        return
+    fi
+
+    last="${undo_stack[-1]}"
+    undo_stack=("${undo_stack[@]:0:${#undo_stack[@]}-1}")
+    redo_stack+=("$last")  # Save for redo
+
+    IFS='|' read -r type index old new <<< "$last"
+
+    case "$type" in
+        edit)
+            lines[$index]="$old"
+            ;;
+        insert)
+            unset 'lines[index]'
+            lines=( "${lines[@]}" )
+            ;;
+        delete)
+            lines=( "${lines[@]:0:$index}" "$old" "${lines[@]:$index}" )
+            ;;
+    esac
+    cursor=$index
+}
+
+redo_last_action() {
+    if [[ ${#redo_stack[@]} -eq 0 ]]; then
+        echo -e "\nnothing to redo"
+        sleep 1
+        return
+    fi
+
+    last="${redo_stack[-1]}"
+    redo_stack=("${redo_stack[@]:0:${#redo_stack[@]}-1}")
+    undo_stack+=("$last")
+
+    IFS='|' read -r type index old new <<< "$last"
+
+    case "$type" in
+        edit)
+            lines[$index]="$new"
+            ;;
+        insert)
+            lines=( "${lines[@]:0:$index}" "$new" "${lines[@]:$index}" )
+            ;;
+        delete)
+            unset 'lines[index]'
+            lines=( "${lines[@]}" )
+            ;;
+    esac
+    cursor=$index
+}
+
+push_undo() {
+    undo_stack+=("$1")
+    redo_stack=()  # Clear redo stack on new change
+}
+
+insert_line() {
+    echo -e "insert (a)bove or (b)elow current line?"
+    read -rsn1 key
+    case "$key" in
+        a|A) insert_pos=$cursor ;;
+        b|B) insert_pos=$((cursor + 1)) ;;
+        *) return ;;
+    esac
+
+    lines=( "${lines[@]:0:$insert_pos}" "" "${lines[@]:$insert_pos}" )
+    push_undo "insert|$insert_pos||"
+    cursor=$insert_pos
+}
+
+draw
+
+while true; do
+    draw
+    read -rsn1 key
+
+    case "$key" in
+        $'\x1b') # Arrow keys
+            read -rsn1 -t 0.1 second
+            if [[ $second == "[" ]]; then
+            read -rsn1 -t 0.1 third
+            case "$third" in
+                "A")  # Up
+                    if (( cursor > 0 )); then
+                        ((cursor--))
+                        (( cursor < window_start )) && ((window_start--))
+                    fi
+                    ;;
+                "B")  # Down
+                    if (( cursor < ${#lines[@]} - 1 )); then
+                        ((cursor++))
+                        (( cursor >= window_start + window_height )) && ((window_start++))
+                    fi
+                    ;;
+                "5")  # PgUp
+                    read -rsn1 -t 0.1 discard  # discard '~'
+                    ((cursor -= window_height))
+                    ((cursor < 0)) && cursor=0
+                    ((window_start = cursor))
+                    ;;
+                "6")  # PgDn
+                    read -rsn1 -t 0.1 discard  # discard '~'
+                    ((cursor += window_height))
+                    ((cursor >= ${#lines[@]})) && cursor=$((${#lines[@]} - 1))
+                    ((window_start = cursor - window_height + 1))
+                    ((window_start < 0)) && window_start=0
+                    ;;
+            esac
+        fi
+            ;;
+        $'\x13') # Ctrl+S
+            save_file
+            ;;
+        $'\x11') # Ctrl+Q
+            clear
+            tput cnorm
+            break
+            ;;
+        $'\x05') # Ctrl+E (Edit)
+            tput cnorm
+            old="${lines[$cursor]}"
+            read -e -i "$old" -p "edit line $((cursor + 1)): " new_line
+            push_undo "edit|$cursor|$old|$new_line"
+            lines[$cursor]="$new_line"
+            ;;
+        $'\x04') # Ctrl+D (Delete)
+            push_undo "delete|$cursor|${lines[$cursor]}|"
+           unset 'lines[cursor]'
+            lines=( "${lines[@]}" )
+            (( cursor > 0 )) && ((cursor--))
+            ;;
+        $'\x15') # Ctrl+U (Undo)
+            undo_last_action
+            ;;
+        $'\x12') # Ctrl+R (Redo)
+            redo_last_action
+            ;;
+        $'\x0e') # Ctrl+N (Insert)
+            insert_line
+            ;;
+    esac
+done

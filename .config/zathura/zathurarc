@@ -1,0 +1,6 @@
+set guioptions none
+set guioptions v
+set selection-clipboard clipboard
+set font 'monospace normal 11'
+
+include current-theme

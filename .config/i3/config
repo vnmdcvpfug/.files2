@@ -1,0 +1,104 @@
+floating_modifier $mod
+focus_follows_mouse yes
+font pango:Noto Sans Mono Regular 13
+set $mod Mod4
+tiling_drag modifier titlebar
+
+exec_always xinput set-prop "Synaptics TM3053-004" "libinput Natural Scrolling Enabled" 1
+exec_always xinput set-prop "Synaptics TM3053-004" "libinput Tapping Enabled" 1
+exec_always xrandr --output eDP-1 --mode 1600x900 --rate 59.99
+exec_always systemctl --user import-environment DISPLAY XAUTHORITY
+
+default_border pixel 1
+default_floating_border pixel 1
+
+for_window [class="floating-terminal"] border pixel 1, floating enable, resize set 800 450, move position center
+for_window [class="menu"] border pixel 1, floating enable, resize set 200 100, move position center, sticky enable
+for_window [class="wezterm"] border pixel 1
+
+client.focused #4f4f4f #0f0f0f #f0f0f0 #4f4f4f #4f4f4f
+client.focused_inactive #303030 #0f0f0f #f0f0f0 #303030 #303030
+client.unfocused #303030 #0f0f0f #f0f0f0 #303030 #303030
+client.urgent #eda69a #eda69a #0f0f0f #4f4f4f #4f4f4f
+
+bindsym XF86MonBrightnessDown, exec --no-startup-id brightnessctl -25
+bindsym XF86MonBrightnessUp, exec --no-startup-id brightnessctl 25
+bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5%
+bindsym XF86AudioMicMute exec --no-startup-id pactl set-source-mute @DEFAULT_SOURCE@ toggle
+bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle
+bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ +5%
+
+bindsym $mod+b exec chromium
+bindsym $mod+c move position center
+bindsym $mod+Shift+c resize set 800 450
+bindsym $mod+d exec discord
+bindsym $mod+Escape exec pkill -KILL -u $(whoami)
+bindsym $mod+Shift+Escape restart
+bindsym $mod+f fullscreen toggle
+bindsym $mod+Shift+f floating toggle
+bindsym $mod+m exec spotify-launcher
+bindsym $mod+p sticky toggle
+bindsym $mod+q kill
+bindsym $mod+r exec wezterm start --class=menu menu
+bindsym $mod+Shift+r exec wezterm start --class=floating-terminal ai
+bindsym $mod+s split toggle
+bindsym $mod+Control+s layout toggle
+bindsym $mod+Shift+s layout toggle split
+bindsym $mod+t exec wezterm
+bindsym $mod+Shift+t exec wezterm start --class=floating-terminal
+bindsym $mod+Shift+v focus mode_toggle
+bindsym $mod+Tab focus next
+bindsym $mod+Shift+Tab workspace next
+bindsym $mod+z exec zathura
+bindsym Print exec ffmpeg -f x11grab -video_size $(xdpyinfo | awk '/dimensions/{print $2}') -i $DISPLAY -vframes 1 ~/$(date +%Y%m%d%H%M%S).png
+
+set $ws1 "1"
+set $ws2 "2"
+set $ws3 "3"
+set $ws4 "4"
+
+bindsym $mod+Down focus down
+bindsym $mod+Left focus left
+bindsym $mod+Right focus right
+bindsym $mod+Up focus up
+
+bindsym $mod+Shift+Down move down 50px
+bindsym $mod+Shift+Left move left 50px
+bindsym $mod+Shift+Right move right 50px
+bindsym $mod+Shift+Up move up 50px
+
+bindsym $mod+Shift+Control+Down move down 1px
+bindsym $mod+Shift+Control+Left move left 1px
+bindsym $mod+Shift+Control+Right move right 1px
+bindsym $mod+Shift+Control+Up move up 1px
+
+bindsym $mod+Control+Down resize grow height 50 px
+bindsym $mod+Control+Left resize shrink width 50 px
+bindsym $mod+Control+Right resize grow width 50 px
+bindsym $mod+Control+Up resize shrink height 50 px
+
+bindsym $mod+1 workspace number $ws1
+bindsym $mod+2 workspace number $ws2
+bindsym $mod+3 workspace number $ws3
+bindsym $mod+4 workspace number $ws4
+
+bindsym $mod+Shift+1 move container to workspace number $ws1
+bindsym $mod+Shift+2 move container to workspace number $ws2
+bindsym $mod+Shift+3 move container to workspace number $ws3
+bindsym $mod+Shift+4 move container to workspace number $ws4
+
+bar {
+  bindsym button1 nop
+  colors {
+    background #0f0f0f
+    focused_workspace #f0f0f0 #f0f0f0 #0f0f0f
+    inactive_workspace #0f0f0f #0f0f0f #f0f0f0
+    urgent_workspace #eda69a #eda69a #0f0f0f
+    separator #f0f0f0
+    statusline #f0f0f0
+  }
+  padding 0px 0px 0px 0px
+  position top
+  status_command exec statusbar
+  tray_output none
+}

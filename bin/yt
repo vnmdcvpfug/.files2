@@ -1,0 +1,24 @@
+#!/bin/bash
+TMP_DIR="$HOME/.files/yt/tmp_xml"
+OUT_HTML="$HOME/.files/yt/videos.html"
+SORT_FILE="$HOME/.files/yt/sort_to_html.xsl"
+XSL_FILE="$HOME/.files/yt/extract.xsl"
+LIST_FILE="$HOME/.files/yt/list"
+
+mkdir -p "$TMP_DIR"
+> "$TMP_DIR/all_entries.xml"
+
+while IFS= read -r channel_id; do
+    echo -en "Fetching feed for channel ID: $channel_id\r"
+    curl -s "https://www.youtube.com/feeds/videos.xml?channel_id=$channel_id" > "$TMP_DIR/$channel_id.xml"
+    xsltproc "$XSL_FILE" "$TMP_DIR/$channel_id.xml" >> "$TMP_DIR/all_entries.xml"
+done < "$LIST_FILE"
+ENTRIES_XML="$TMP_DIR/wrapped_entries.xml"
+{
+    echo '<?xml version="1.0"?><videos>'
+    cat "$TMP_DIR/all_entries.xml"
+    echo '</videos>'
+} > "$ENTRIES_XML"
+xsltproc "$SORT_FILE" "$ENTRIES_XML" > "$OUT_HTML"
+echo "HTML file generated at $OUT_HTML"
+rm -fr $TMP_DIR

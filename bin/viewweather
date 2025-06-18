@@ -1,0 +1,5 @@
+#!/bin/bash
+weather=$(curl -As "vnmdcvpfug@gmail.com" "https://api.weather.gov/points/34.0522,-118.2437" | grep -oP '"forecastHourly":\s*"\K[^"]+')
+forecast=$(curl -As "vnmdcvpfug@gmail.com" "$weather")
+grep -m 1 -oP '"temperature":\s*\K\d+' <<< "$forecast"
+grep -m 1 -oP '"shortForecast":\s*"\K[^"]+' <<< "$forecast"

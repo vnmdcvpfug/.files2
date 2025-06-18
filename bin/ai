@@ -1,0 +1,55 @@
+#!/bin/bash
+tput civis
+echo -e "ai chat v0.1.0\n"
+echo -e "press the number of the model to use\n"
+models=("llama3.2:1b" "llama3.2:3b" "phi4-mini:3.8b" "phi4-mini-reasoning:3.8b" "gemma3:1b" "gemma3:4b" "codegemma:2b-v1.1" "codegemma:7b-instruct-v1.1-q2_K" )
+
+for i in "${!models[@]}"; do
+  echo -e "$((i+1)) ${models[$i]}"
+done
+
+echo -e "\n"
+
+while true; do
+  read -n1 -s key
+  if [[ "$key" =~ [1-9] ]] && (( key >= 1 && key <= ${#models[@]} )); then
+    model="${models[$((key-1))]}"
+    break
+  else
+    echo -en "\r$key is invalid"
+  fi
+done
+
+clear
+tput cnorm
+echo -e "ai chat v0.1.0"
+echo -e "running $model\n"
+
+if ! curl -s http://localhost:11434 > /dev/null; then
+  systemctl --user enable --now ollama.service > /dev/null 2>&1
+fi
+
+if (( $# > 0)); then
+  prompt="$*"
+  echo -e "user:"
+  echo -e "$prompt"
+else
+  echo -e "user:"
+  read -e prompt
+fi
+
+while [[ "$prompt" =~ \$\(([^()]*)\) ]]; do
+  prompt="${prompt//${BASH_REMATCH[0]}/$(eval "${BASH_REMATCH[1]}")}"
+done
+echo -e "\nai:"
+ollama run $model "$prompt"
+
+while true; do
+  echo -e "user:"
+  read -e prompt
+  while [[ "$prompt" =~ \$\(([^()]*)\) ]]; do
+    prompt="${prompt//${BASH_REMATCH[0]}/$(eval "${BASH_REMATCH[1]}")}"
+  done
+  echo -e "\nai:"
+  ollama run $model "$prompt"
+done

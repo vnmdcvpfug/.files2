@@ -1,0 +1,69 @@
+#!/bin/bash
+time_const=$(ifstat wlp3s0 | awk 'NR==1 {print $3}' | sed 's/.*\(.\)$/\1/')
+if [ "$time_const" = "5" ]; then
+  download=$(ifstat --interval=10 wlp3s0 | awk 'NR==4 {print tolower($7)}')
+  download_num=$(echo "$download" | sed 's/[a-zA-Z]*//g')
+  download_unit=$(echo "$download" | sed 's/[0-9.]*//g')
+  [ -z "$download_unit" ] && download_unit="b"
+  viewdown="d$(printf "%03d%s\n" "$download_num" "$download_unit")"
+
+  upload=$(ifstat --interval=10 wlp3s0 | awk 'NR==4 {print tolower($9)}')
+  upload_num=$(echo "$upload" | sed 's/[a-zA-Z]*//g')
+  upload_unit=$(echo "$upload" | sed 's/[0-9.]*//g')
+  [ -z "$upload_unit" ] && upload_unit="b"
+  viewup="u$(printf "%03d%s\n" "$upload_num" "$upload_unit")"
+else
+  ifstat --scan=5 --interval=5
+fi
+
+if [ "$(systemctl is-active NetworkManager)" = "active" ]; then
+  viewnm="nm1"
+elif [ "$(systemctl is-active NetworkManager)" = "inactive" ]; then
+  viewnm="nm0"
+fi
+
+if [ "$(systemctl is-active bluetooth)" = "active" ]; then
+  viewbt="bt1"
+elif [ "$(systemctl is-active bluetooth)" = "inactive" ]; then
+  viewbt="bt0"
+fi
+
+if curl -s http://localhost:11434 > /dev/null; then
+  viewol="ol1"
+else
+  viewol="ol0"
+fi
+
+if [ "$(systemctl --user status ollama.service | grep 'Active:' | awk -F';' '{print $2}' | awk '{print $1}')" = "30m" ]; then
+  systemctl --user disable --now ollama.service;
+fi
+
+viewtemp=$(awk '{print "tmp" $1 / 1000 "c"}' /sys/class/thermal/thermal_zone0/temp)
+
+viewcpu=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{printf "cpu%02d%%\n", 100 - $1}')
+
+viewram=$(free | awk '/^Mem:/ {printf "ram%02d%%\n", ($3/$2 * 100) + 0.5}')
+
+viewvol="vol$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{printf "%02d%%\n", int($2 * 100)}')"
+
+viewbl=$(printf "bl%02d%%" $(( $(cat /sys/class/backlight/intel_backlight/brightness) * 100 / $(cat /sys/class/backlight/intel_backlight/max_brightness))))
+
+isCharging=$(awk -F= '/POWER_SUPPLY_STATUS=/ {print $2}' /sys/class/power_supply/BAT1/uevent)
+battery_capacity=$(awk -F= '/POWER_SUPPLY_CAPACITY=/ {print $2 "%"}' /sys/class/power_supply/BAT1/uevent)
+if [[ "$isCharging" == "Not charging" ]]; then
+  battery_state="idl"
+elif [[ "$isCharging" == "Discharging" ]]; then
+  battery_state="dsc"
+elif [[ "$isCharging" == "Charging" ]]; then
+  battery_state="chr"
+else
+  battery_state="unk"
+fi
+
+viewbat="$battery_state$battery_capacity"
+
+viewweek=$(date +"%a" | awk '{print tolower($0)}')
+viewdate=$(date +"%b%d" | awk '{print tolower($0)}')
+viewtime=$(date +"%I:%M%P" | awk '{print tolower($0)}')
+
+echo "$viewdown|$viewup|$viewnm|$viewbt|$viewol|$viewtemp|$viewcpu|$viewram|$viewvol|$viewbl|$viewbat|$viewweek|$viewdate|$viewtime"

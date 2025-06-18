@@ -1,0 +1,15 @@
+#!/bin/bash
+MAIN_FILE="$HOME/.files/dailybrief/tor-bridges"
+touch "$MAIN_FILE"
+curl -s "https://bridges.torproject.org/bridges?transport=obfs4" |
+grep --max-count=2 obfs4 |
+while IFS= read -r line; do
+    trimmed="${line:8:-6}"
+    final_line="#Bridge ${trimmed}"
+    if ! grep -Fxq "$final_line" "$MAIN_FILE"; then
+        if [ "$(wc -l < "$MAIN_FILE")" -ge 14 ]; then
+            sed -i '1d' "$MAIN_FILE"
+        fi
+        echo "$final_line" >> "$MAIN_FILE"
+    fi
+done

@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# This script is made possible thanks to
+# Princeton University "About WordNet." WordNet. Princeton University. 2010.
+# https://wordnet.princeton.edu/
+
+# WordNet Release 3.0 This software and database is being provided to you,
+# the LICENSEE, by Princeton University under the following license.
+# By obtaining, using and/or copying this software and database, you agree
+# that you have read, understood, and will comply with these terms and
+# conditions.: Permission to use, copy, modify and distribute this software
+# and database and its documentation for any purpose and without fee or
+# royalty is hereby granted, provided that you agree to comply with the
+# following copyright notice and statements, including the disclaimer, and
+# that the same appear on ALL copies of the software, database and
+# documentation, including modifications that you make for internal use or
+# for distribution. WordNet 3.0 Copyright 2006 by Princeton University. All
+# rights reserved. THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND
+# PRINCETON UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+# IMPLIED. BY WAY OF EXAMPLE, BUT NOT LIMITATION, PRINCETON UNIVERSITY
+# MAKES NO REPRESENTATIONS OR WARRANTIES OF MERCHANT- ABILITY OR FITNESS
+# FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF THE LICENSED SOFTWARE,
+# DATABASE OR DOCUMENTATION WILL NOT INFRINGE ANY THIRD PARTY PATENTS,
+# COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS. The name of Princeton University
+# or Princeton may not be used in advertising or publicity pertaining to
+# distribution of the software and/or database. Title to copyright in this
+# software, database and any associated documentation shall at all times
+# remain with Princeton University and LICENSEE agrees to preserve same.
+
+wn_dir="$HOME/.files/dict"
+version="0.1.0"
+
+used_args=0
+
+while true; do
+    clear
+    echo -e "dictionary v$version, powered by:"
+    echo -e 'Princeton University "About WordNet." WordNet. Princeton University. 2010.'
+    echo -e "https://wordnet.princeton.edu/"
+
+    if [ $used_args -eq 0 ] && [ $# -gt 0 ]; then
+        word="$*"
+        echo "define: $word"
+        used_args=1
+    else
+        read -rep "define: " word
+    fi
+    echo
+
+    if [[ -z "$word" ]]; then
+        echo "please enter a word"
+        sleep 1
+        continue
+    fi
+
+    # Convert spaces to underscores to match WordNet multi-word expressions
+    key="${word// /_}"
+
+    found=0
+
+    for pos in noun verb adj adv; do
+        index_file="$wn_dir/index.$pos"
+        data_file="$wn_dir/data.$pos"
+
+        if [[ ! -f "$index_file" || ! -f "$data_file" ]]; then
+            continue
+        fi
+
+        # Lookup with the underscore-converted key
+        line=$(awk -v w="$key" 'tolower($1) == tolower(w) { print; exit }' "$index_file")
+
+        if [[ -n "$line" ]]; then
+            found=1
+            echo "$word - $pos:"
+
+            offsets=$(echo "$line" | awk '{for (i=6; i<=NF; i++) if ($i ~ /^[0-9]+$/) print $i}')
+
+            while read -r offset; do
+                decimal=$((10#$offset))
+                pattern=$(printf "^%08d" "$decimal")
+                gloss_line=$(grep "$pattern" "$data_file")
+
+                if [[ "$gloss_line" == *"|"* ]]; then
+                    gloss="${gloss_line#*| }"
+                    gloss=$(echo "$gloss" | sed 's/; \".*//')     # Remove example sentences
+                    echo "$gloss"
+                fi
+            done <<< "$offsets"
+
+            echo
+        fi
+    done
+
+    if [[ "$found" -eq 0 ]]; then
+        echo "no definitions found for '$word'"
+        echo
+    fi
+
+    echo -n "press any key to continue..."
+    read -rsn1
+done

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+CURRENT_THEME=$(gsettings get org.gnome.desktop.interface color-scheme)
+
+if [[ "$CURRENT_THEME" == "'prefer-dark'" ]]; then
+  gsettings set org.gnome.desktop.interface color-scheme 'prefer-light'
+  echo "local drylab_light = require('drylab_light')
+  return drylab_light" > ~/.config/wezterm/current_theme.lua
+  THEME_CMD=":set background=light<CR>"
+  echo "include drylab-light" > ~/.config/zathura/current-theme
+else
+  gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+  echo "local drylab_dark = require('drylab_dark')
+  return drylab_dark" > ~/.config/wezterm/current_theme.lua
+  THEME_CMD=":set background=dark<CR>"
+  echo "include drylab-dark" > ~/.config/zathura/current-theme
+fi
+
+for sock in $(find /tmp -type s -name 'nvim*.sock' 2>/dev/null); do
+    nvim --server "$sock" --remote-send "$THEME_CMD"
+done

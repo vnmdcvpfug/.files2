@@ -1,0 +1,3 @@
+#!/bin/bash
+name="$(basename "$PWD").tar.xz"
+tar --exclude='./dict' -cJvf ../"$name" .

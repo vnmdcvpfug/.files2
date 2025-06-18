@@ -1,0 +1,44 @@
+#!/bin/bash
+read -p "Image: " input
+IMAGE=$input
+LOG_FILE=$(mktemp)
+seconds="15"
+
+cleanup() {
+    rm -f "$LOG_FILE"
+}
+trap cleanup EXIT
+
+echo "Starting ollama pull..."
+
+while true; do
+    ollama pull "$IMAGE" >"$LOG_FILE" 2>&1 &
+    PID=$!
+    KILLED_BY_US=0
+
+    sleep $seconds
+
+    while kill -0 $PID 2>/dev/null; do
+        line=$(tail -n 1 "$LOG_FILE")
+
+        if echo "$line" | grep -q "MB/s"; then
+            echo "Speed is OK: $line"
+        else
+            echo "Speed too low: $line — restarting..."
+            kill $PID
+            KILLED_BY_US=1
+            wait $PID 2>/dev/null
+            break
+        fi
+
+        sleep $seconds
+    done
+
+    # If not killed by us, it means it finished naturally → we're done
+    #if [[ $KILLED_BY_US -eq 0 ]]; then
+    #    echo "Download completed."
+    #    break
+    #fi
+
+    # Otherwise, loop continues and restart happens
+done

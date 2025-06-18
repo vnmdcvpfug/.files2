@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if ! [[ "$1" =~ ^-?[0-9]+$ ]]; then
+    echo "Error: Brightness adjustment must be an integer."
+    exit 1
+fi
+
+brightness_now=$(cat /sys/class/backlight/intel_backlight/brightness 2>/dev/null)
+brightness_max=848
+
+if [[ -z "$brightness_now" ]]; then
+    echo "Error: Unable to read current brightness."
+    exit 1
+fi
+
+brightness_new=$((brightness_now + $1))
+
+if [ $brightness_new -lt 0 ]; then
+    brightness_new=0
+elif [ $brightness_new -gt $brightness_max ]; then
+    brightness_new=$brightness_max
+fi
+
+echo $brightness_new | sudo tee /sys/class/backlight/intel_backlight/brightness > /dev/null
