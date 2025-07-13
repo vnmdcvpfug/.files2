@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Fetch the date header over Tor
+date_header=$(torsocks curl -sI https://check.torproject.org | grep -i "^Date:")
+
+if [[ -z "$date_header" ]]; then
+    echo "Failed to get time from Tor network."
+    exit 1
+fi
+
+# Extract and convert date string
+date_str=$(echo "$date_header" | cut -d' ' -f2-)
+formatted_time=$(date -d "$date_str" +"%Y-%m-%d %H:%M:%S")
+
+if [[ -z "$formatted_time" ]]; then
+    echo "Failed to parse date."
+    exit 1
+fi
+
+echo "Setting system time to: $formatted_time"
+
+# Set the system time (requires sudo)
+sudo timedatectl set-time "$formatted_time"
+
+echo "Time synchronized manually via Tor"
+
